@@ -23,7 +23,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast, overload
 
 from loguru import logger
-from PIL import Image
 
 from pipecat.adapters.schemas.direct_function import DirectFunction
 from pipecat.adapters.schemas.function_schema import FunctionSchema
@@ -160,6 +159,8 @@ class LLMContext:
                 bytes = image
             else:
                 # Encode to JPEG
+                from PIL import Image
+
                 buffer = io.BytesIO()
                 Image.frombytes(format, size, image).save(buffer, format="JPEG")
                 bytes = buffer.getvalue()
