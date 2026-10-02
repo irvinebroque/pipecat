@@ -11,16 +11,10 @@ format conversion, volume calculation, and codec transformations for
 various audio formats used in Pipecat pipelines.
 """
 
-import audioop
 import io
 import wave
 
-import loudness
-import numpy as np
-
 from pipecat.audio.resamplers.base_audio_resampler import BaseAudioResampler
-from pipecat.audio.resamplers.soxr_resampler import SOXRAudioResampler
-from pipecat.audio.resamplers.soxr_stream_resampler import SOXRStreamAudioResampler
 
 # Normal speech usually results in many samples between ±500 to ±5000, depending on loudness and mic gain.
 # So we are using a threshold that is well below what real speech produces.
@@ -36,6 +30,8 @@ def create_file_resampler(**kwargs) -> BaseAudioResampler:
     Returns:
         A configured SOXRAudioResampler instance.
     """
+    from pipecat.audio.resamplers.soxr_resampler import SOXRAudioResampler
+
     return SOXRAudioResampler(**kwargs)
 
 
@@ -48,6 +44,8 @@ def create_stream_resampler(**kwargs) -> BaseAudioResampler:
     Returns:
         A configured SOXRStreamAudioResampler instance.
     """
+    from pipecat.audio.resamplers.soxr_stream_resampler import SOXRStreamAudioResampler
+
     return SOXRStreamAudioResampler(**kwargs)
 
 
@@ -65,6 +63,8 @@ def mix_audio(audio1: bytes, audio2: bytes) -> bytes:
     Returns:
         Mixed audio data as raw bytes with samples clipped to 16-bit range.
     """
+    import numpy as np
+
     data1 = np.frombuffer(audio1, dtype=np.int16)
     data2 = np.frombuffer(audio2, dtype=np.int16)
 
@@ -96,6 +96,8 @@ def interleave_stereo_audio(left_audio: bytes, right_audio: bytes) -> bytes:
     Returns:
         Interleaved stereo audio data as raw bytes.
     """
+    import numpy as np
+
     left = np.frombuffer(left_audio, dtype=np.int16)
     right = np.frombuffer(right_audio, dtype=np.int16)
 
@@ -175,6 +177,9 @@ def calculate_audio_volume(audio: bytes | bytearray | memoryview, sample_rate: i
     Raises:
         ValueError: If the audio is shorter than a gating block.
     """
+    import loudness
+    import numpy as np
+
     audio_np = np.frombuffer(audio, dtype=np.int16)
     audio_float = audio_np.astype(np.float32) / 32768.0
 
@@ -220,6 +225,8 @@ async def ulaw_to_pcm(
     Returns:
         PCM audio data as raw bytes at the specified output rate.
     """
+    import audioop
+
     # Convert μ-law to PCM
     in_pcm_bytes = audioop.ulaw2lin(ulaw_bytes, 2)
 
@@ -241,6 +248,8 @@ async def pcm_to_ulaw(pcm_bytes: bytes, in_rate: int, out_rate: int, resampler: 
     Returns:
         μ-law encoded audio data as raw bytes at the specified output rate.
     """
+    import audioop
+
     # Resample
     in_pcm_bytes = await resampler.resample(pcm_bytes, in_rate, out_rate)
 
@@ -264,6 +273,8 @@ async def alaw_to_pcm(
     Returns:
         PCM audio data as raw bytes at the specified output rate.
     """
+    import audioop
+
     # Convert a-law to PCM
     in_pcm_bytes = audioop.alaw2lin(alaw_bytes, 2)
 
@@ -285,6 +296,8 @@ async def pcm_to_alaw(pcm_bytes: bytes, in_rate: int, out_rate: int, resampler: 
     Returns:
         A-law encoded audio data as raw bytes at the specified output rate.
     """
+    import audioop
+
     # Resample
     in_pcm_bytes = await resampler.resample(pcm_bytes, in_rate, out_rate)
 
@@ -314,6 +327,8 @@ def is_silence(pcm_bytes: bytes) -> bool:
         (SPEAKING_THRESHOLD) is set well below typical speech levels to
         reliably detect silence vs. speech.
     """
+    import numpy as np
+
     # Convert raw audio bytes to a NumPy array of int16 samples
     audio_data = np.frombuffer(pcm_bytes, dtype=np.int16)
 
@@ -365,6 +380,8 @@ def detect_speech_onset(
         The per-channel sample index of speech onset, or None if no sustained
         onset is present yet.
     """
+    import numpy as np
+
     if sample_rate <= 0:
         return None
 

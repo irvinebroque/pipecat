@@ -4,17 +4,7 @@
 # SPDX-License-Identifier: BSD 2-Clause License
 #
 
-from .base_user_turn_start_strategy import BaseUserTurnStartStrategy, UserTurnStartedParams
-from .external_user_turn_start_strategy import ExternalUserTurnStartStrategy
-from .min_words_user_turn_start_strategy import MinWordsUserTurnStartStrategy
-from .transcription_user_turn_start_strategy import TranscriptionUserTurnStartStrategy
-from .vad_user_turn_start_strategy import VADUserTurnStartStrategy
-from .wake_phrase_user_turn_start_strategy import WakePhraseUserTurnStartStrategy
-
-try:
-    from .krisp_viva_ip_user_turn_start_strategy import KrispVivaIPUserTurnStartStrategy
-except ImportError:
-    KrispVivaIPUserTurnStartStrategy = None  # krisp_audio not installed
+from importlib import import_module
 
 __all__ = [
     "BaseUserTurnStartStrategy",
@@ -26,3 +16,29 @@ __all__ = [
     "VADUserTurnStartStrategy",
     "WakePhraseUserTurnStartStrategy",
 ]
+
+
+_LAZY_EXPORTS = {
+    "BaseUserTurnStartStrategy": ".base_user_turn_start_strategy",
+    "UserTurnStartedParams": ".base_user_turn_start_strategy",
+    "ExternalUserTurnStartStrategy": ".external_user_turn_start_strategy",
+    "MinWordsUserTurnStartStrategy": ".min_words_user_turn_start_strategy",
+    "TranscriptionUserTurnStartStrategy": ".transcription_user_turn_start_strategy",
+    "VADUserTurnStartStrategy": ".vad_user_turn_start_strategy",
+    "WakePhraseUserTurnStartStrategy": ".wake_phrase_user_turn_start_strategy",
+    "KrispVivaIPUserTurnStartStrategy": ".krisp_viva_ip_user_turn_start_strategy",
+}
+
+
+def __getattr__(name: str):
+    module = _LAZY_EXPORTS.get(name)
+    if module is None:
+        raise AttributeError(name)
+    try:
+        value = getattr(import_module(module, __name__), name)
+    except ImportError:
+        if name != "KrispVivaIPUserTurnStartStrategy":
+            raise
+        value = None
+    globals()[name] = value
+    return value

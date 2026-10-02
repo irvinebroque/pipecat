@@ -11,13 +11,15 @@ execution, frame routing, lifecycle management, and monitoring capabilities
 including heartbeats, idle detection, and observer integration.
 """
 
+from __future__ import annotations
+
 import asyncio
 import time
 import warnings
 from collections.abc import AsyncIterable, Iterable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
@@ -74,7 +76,6 @@ from pipecat.pipeline.base_pipeline import BasePipeline
 from pipecat.pipeline.pipeline import Pipeline, PipelineSink, PipelineSource
 from pipecat.pipeline.worker_observer import WorkerObserver
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor, FrameProcessorSetup
-from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIObserverParams, RTVIProcessor
 from pipecat.processors.frameworks.rtvi.frames import RTVIUICommandFrame, RTVIUIJobGroupFrame
 from pipecat.processors.frameworks.rtvi.models import (
     UICancelJobGroupMessage,
@@ -92,6 +93,9 @@ from pipecat.utils.tracing.setup import is_tracing_available
 from pipecat.utils.tracing.tracing_context import TracingContext
 from pipecat.utils.tracing.turn_trace_observer import TurnTraceObserver
 from pipecat.workers.base_worker import BaseWorker, WorkerActivationArgs, WorkerParams
+
+if TYPE_CHECKING:
+    from pipecat.processors.frameworks.rtvi import RTVIObserverParams, RTVIProcessor
 
 HEARTBEAT_SECS = 1.0
 HEARTBEAT_MONITOR_SECS = 10.0
@@ -493,8 +497,29 @@ class PipelineWorker(BaseWorker):
             enable_rtvi = bridged is None
         self._rtvi = None
         prepend_rtvi = False
-        external_rtvi = self._find_processor(pipeline, RTVIProcessor)
-        external_observer_found = any(isinstance(o, RTVIObserver) for o in observers)
+
+        def uses_rtvi(obj: object) -> bool:
+            if any(
+                cls.__module__.startswith("pipecat.processors.frameworks.rtvi")
+                for cls in type(obj).__mro__
+            ):
+                return True
+            return any(uses_rtvi(child) for child in getattr(obj, "processors", []))
+
+        external_rtvi = None
+        external_observer_found = False
+        if (
+            enable_rtvi
+            or rtvi_processor is not None
+            or uses_rtvi(pipeline)
+            or any(uses_rtvi(observer) for observer in observers)
+        ):
+            from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIProcessor
+
+            external_rtvi = self._find_processor(pipeline, RTVIProcessor)
+            external_observer_found = any(
+                isinstance(observer, RTVIObserver) for observer in observers
+            )
 
         if external_rtvi and not external_observer_found:
             logger.error(
